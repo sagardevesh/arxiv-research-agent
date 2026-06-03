@@ -13,8 +13,6 @@ from qdrant_client.models import (
     VectorParams,
 )
 
-from rag.embedder import DENSE_MODEL, DenseEmbedder
-
 load_dotenv()
 
 COLLECTION_NAME = "arxiv_papers"
@@ -37,9 +35,7 @@ def ensure_collection(client: QdrantClient, dense_dim: int = 384) -> None:
         collection_name=COLLECTION_NAME,
         vectors_config={"dense": VectorParams(size=dense_dim, distance=Distance.COSINE)},
         sparse_vectors_config={
-            SPARSE_VECTOR_NAME: SparseVectorParams(
-                index=SparseIndexParams(on_disk=False)
-            )
+            SPARSE_VECTOR_NAME: SparseVectorParams(index=SparseIndexParams(on_disk=False))
         },
     )
 

@@ -25,6 +25,7 @@ class AppContext:
     def qdrant(self):
         if self._qdrant is None:
             from rag.store import get_client
+
             self._qdrant = get_client()
         return self._qdrant
 
@@ -32,6 +33,7 @@ class AppContext:
     def dense_embedder(self):
         if self._dense_embedder is None:
             from rag.embedder import DenseEmbedder
+
             self._dense_embedder = DenseEmbedder()
         return self._dense_embedder
 
@@ -39,6 +41,7 @@ class AppContext:
     def sparse_embedder(self):
         if self._sparse_embedder is None:
             from rag.embedder import SparseEmbedder
+
             self._sparse_embedder = SparseEmbedder()
         return self._sparse_embedder
 
@@ -46,9 +49,8 @@ class AppContext:
     def anthropic(self):
         if self._anthropic is None:
             import anthropic
-            self._anthropic = anthropic.Anthropic(
-                api_key=os.environ["ANTHROPIC_API_KEY"]
-            )
+
+            self._anthropic = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
         return self._anthropic
 
 

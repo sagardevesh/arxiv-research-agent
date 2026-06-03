@@ -1,4 +1,3 @@
-import pytest
 from unittest.mock import MagicMock, patch
 
 from eval.harness import THRESHOLDS, check_thresholds, load_questions, run_eval
@@ -49,12 +48,14 @@ def test_run_eval_uses_injected_fns():
     mock_metric.name = "faithfulness"
     mock_result = {"faithfulness": 0.85, "answer_relevancy": 0.80, "context_precision": 0.75}
 
-    with patch("eval.harness.evaluate", return_value=mock_result) as mock_eval, \
-         patch("eval.harness.Faithfulness", return_value=mock_metric), \
-         patch("eval.harness.AnswerRelevancy", return_value=mock_metric), \
-         patch("eval.harness.ContextPrecision", return_value=mock_metric), \
-         patch("eval.harness.EvaluationDataset") as mock_dataset, \
-         patch("eval.harness.SingleTurnSample"):
+    with (
+        patch("eval.harness.evaluate", return_value=mock_result),
+        patch("eval.harness.Faithfulness", return_value=mock_metric),
+        patch("eval.harness.AnswerRelevancy", return_value=mock_metric),
+        patch("eval.harness.ContextPrecision", return_value=mock_metric),
+        patch("eval.harness.EvaluationDataset") as mock_dataset,
+        patch("eval.harness.SingleTurnSample"),
+    ):
         mock_dataset.return_value = MagicMock()
         scores = run_eval(
             retriever_fn=mock_retriever,

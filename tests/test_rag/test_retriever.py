@@ -1,6 +1,4 @@
-from unittest.mock import MagicMock, patch
-
-import pytest
+from unittest.mock import MagicMock
 
 from rag.embedder import SparseVector
 from rag.retriever import hybrid_search

@@ -5,6 +5,7 @@ Usage:
     python scripts/ingest_arxiv.py --query "retrieval augmented generation" --max 50
     python scripts/ingest_arxiv.py --query "large language models" --categories cs.CL cs.AI
 """
+
 import argparse
 import sys
 from pathlib import Path

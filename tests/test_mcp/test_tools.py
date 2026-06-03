@@ -1,8 +1,6 @@
 from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 from rag.embedder import SparseVector
 from rag.ingest import Paper
 
@@ -34,27 +32,33 @@ def _make_ctx(dense_vec=None, sparse_vec=None):
 # search_papers_tool
 # ---------------------------------------------------------------------------
 
+
 class TestSearchPapersTool:
     def test_returns_hybrid_search_results(self):
         mock_ctx = _make_ctx()
         expected = [{"title": "Paper A", "score": 0.9, "text": "chunk"}]
 
-        with patch("mcp_server.tools.ctx", mock_ctx), \
-             patch("mcp_server.tools.hybrid_search", return_value=expected) as mock_hs:
+        with (
+            patch("mcp_server.tools.ctx", mock_ctx),
+            patch("mcp_server.tools.hybrid_search", return_value=expected) as mock_hs,
+        ):
             from mcp_server.tools import search_papers_tool
+
             results = search_papers_tool("attention mechanisms", top_k=5)
 
         assert results == expected
         mock_hs.assert_called_once()
-        _, call_kwargs = mock_hs.call_args.args, mock_hs.call_args.kwargs
         assert mock_hs.call_args.kwargs.get("top_k") == 5
 
     def test_embeds_query_before_searching(self):
         mock_ctx = _make_ctx()
 
-        with patch("mcp_server.tools.ctx", mock_ctx), \
-             patch("mcp_server.tools.hybrid_search", return_value=[]):
+        with (
+            patch("mcp_server.tools.ctx", mock_ctx),
+            patch("mcp_server.tools.hybrid_search", return_value=[]),
+        ):
             from mcp_server.tools import search_papers_tool
+
             search_papers_tool("transformers", top_k=3)
 
         mock_ctx.dense_embedder.embed.assert_called_once_with(["transformers"])
@@ -65,12 +69,14 @@ class TestSearchPapersTool:
 # fetch_paper_tool
 # ---------------------------------------------------------------------------
 
+
 class TestFetchPaperTool:
     def test_returns_paper_dict_without_full_text(self):
         paper = _make_paper()
 
         with patch("mcp_server.tools.fetch_paper_by_id", return_value=paper):
             from mcp_server.tools import fetch_paper_tool
+
             result = fetch_paper_tool("2301.00001")
 
         assert result["paper_id"] == paper.paper_id
@@ -83,6 +89,7 @@ class TestFetchPaperTool:
 
         with patch("mcp_server.tools.fetch_paper_by_id", return_value=paper) as mock_fetch:
             from mcp_server.tools import fetch_paper_tool
+
             fetch_paper_tool("2301.00001v2")
 
         mock_fetch.assert_called_once_with("2301.00001v2")
@@ -92,6 +99,7 @@ class TestFetchPaperTool:
 
         with patch("mcp_server.tools.fetch_paper_by_id", return_value=paper):
             from mcp_server.tools import fetch_paper_tool
+
             result = fetch_paper_tool("2301.00001")
 
         assert isinstance(result["published"], str)
@@ -102,6 +110,7 @@ class TestFetchPaperTool:
 # summarize_paper_tool
 # ---------------------------------------------------------------------------
 
+
 class TestSummarizePaperTool:
     def test_returns_claude_response_text(self):
         paper = _make_paper()
@@ -110,9 +119,12 @@ class TestSummarizePaperTool:
             MagicMock(text="A concise summary of the paper.")
         ]
 
-        with patch("mcp_server.tools.fetch_paper_by_id", return_value=paper), \
-             patch("mcp_server.tools.ctx", mock_ctx):
+        with (
+            patch("mcp_server.tools.fetch_paper_by_id", return_value=paper),
+            patch("mcp_server.tools.ctx", mock_ctx),
+        ):
             from mcp_server.tools import summarize_paper_tool
+
             summary = summarize_paper_tool("2301.00001")
 
         assert summary == "A concise summary of the paper."
@@ -122,9 +134,12 @@ class TestSummarizePaperTool:
         mock_ctx = _make_ctx()
         mock_ctx.anthropic.messages.create.return_value.content = [MagicMock(text="ok")]
 
-        with patch("mcp_server.tools.fetch_paper_by_id", return_value=paper), \
-             patch("mcp_server.tools.ctx", mock_ctx):
+        with (
+            patch("mcp_server.tools.fetch_paper_by_id", return_value=paper),
+            patch("mcp_server.tools.ctx", mock_ctx),
+        ):
             from mcp_server.tools import summarize_paper_tool
+
             summarize_paper_tool("2301.00001")
 
         call_kwargs = mock_ctx.anthropic.messages.create.call_args.kwargs
@@ -137,6 +152,7 @@ class TestSummarizePaperTool:
 # find_related_tool
 # ---------------------------------------------------------------------------
 
+
 class TestFindRelatedTool:
     def test_excludes_source_paper_from_results(self):
         paper = _make_paper(paper_id="2301.00001v1")
@@ -147,10 +163,13 @@ class TestFindRelatedTool:
             {"paper_id": "2301.00003v1", "title": "Related B", "score": 0.7},
         ]
 
-        with patch("mcp_server.tools.fetch_paper_by_id", return_value=paper), \
-             patch("mcp_server.tools.ctx", mock_ctx), \
-             patch("mcp_server.tools.hybrid_search", return_value=search_results):
+        with (
+            patch("mcp_server.tools.fetch_paper_by_id", return_value=paper),
+            patch("mcp_server.tools.ctx", mock_ctx),
+            patch("mcp_server.tools.hybrid_search", return_value=search_results),
+        ):
             from mcp_server.tools import find_related_tool
+
             results = find_related_tool("2301.00001", top_k=5)
 
         ids = [r["paper_id"] for r in results]
@@ -160,14 +179,15 @@ class TestFindRelatedTool:
     def test_respects_top_k_limit(self):
         paper = _make_paper(paper_id="X")
         mock_ctx = _make_ctx()
-        search_results = [
-            {"paper_id": f"p{i}", "score": float(i)} for i in range(10)
-        ]
+        search_results = [{"paper_id": f"p{i}", "score": float(i)} for i in range(10)]
 
-        with patch("mcp_server.tools.fetch_paper_by_id", return_value=paper), \
-             patch("mcp_server.tools.ctx", mock_ctx), \
-             patch("mcp_server.tools.hybrid_search", return_value=search_results):
+        with (
+            patch("mcp_server.tools.fetch_paper_by_id", return_value=paper),
+            patch("mcp_server.tools.ctx", mock_ctx),
+            patch("mcp_server.tools.hybrid_search", return_value=search_results),
+        ):
             from mcp_server.tools import find_related_tool
+
             results = find_related_tool("X", top_k=3)
 
         assert len(results) <= 3
@@ -176,10 +196,13 @@ class TestFindRelatedTool:
         paper = _make_paper(title="T", abstract="A")
         mock_ctx = _make_ctx()
 
-        with patch("mcp_server.tools.fetch_paper_by_id", return_value=paper), \
-             patch("mcp_server.tools.ctx", mock_ctx), \
-             patch("mcp_server.tools.hybrid_search", return_value=[]):
+        with (
+            patch("mcp_server.tools.fetch_paper_by_id", return_value=paper),
+            patch("mcp_server.tools.ctx", mock_ctx),
+            patch("mcp_server.tools.hybrid_search", return_value=[]),
+        ):
             from mcp_server.tools import find_related_tool
+
             find_related_tool("2301.00001")
 
         expected_text = paper.ingestion_text()

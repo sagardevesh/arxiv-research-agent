@@ -8,6 +8,7 @@ Usage:
 """
 
 import sys
+
 from eval.harness import check_thresholds, run_eval
 
 if __name__ == "__main__":

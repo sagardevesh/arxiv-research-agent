@@ -1,6 +1,5 @@
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime
-from typing import Optional
 
 import arxiv
 
@@ -14,7 +13,7 @@ class Paper:
     published: datetime
     url: str
     categories: list[str]
-    full_text: Optional[str] = None
+    full_text: str | None = None
 
     def ingestion_text(self) -> str:
         """Text used for chunking and embedding — title + abstract."""
@@ -56,7 +55,7 @@ def fetch_paper_by_id(paper_id: str) -> "Paper":
 def fetch_papers(
     query: str,
     max_results: int = 50,
-    categories: Optional[list[str]] = None,
+    categories: list[str] | None = None,
 ) -> list[Paper]:
     """Fetch papers from arXiv by query string, optionally filtering by category."""
     search = arxiv.Search(

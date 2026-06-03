@@ -9,8 +9,8 @@ from __future__ import annotations
 import json
 import os
 import warnings
+from collections.abc import Callable
 from pathlib import Path
-from typing import Callable
 
 from dotenv import load_dotenv
 
@@ -114,7 +114,11 @@ def run_eval(
         )
 
     dataset = EvaluationDataset(samples=samples)
-    metrics = [Faithfulness(llm=ragas_llm), AnswerRelevancy(llm=ragas_llm), ContextPrecision(llm=ragas_llm)]
+    metrics = [
+        Faithfulness(llm=ragas_llm),
+        AnswerRelevancy(llm=ragas_llm),
+        ContextPrecision(llm=ragas_llm),
+    ]
 
     result = evaluate(dataset, metrics=metrics, show_progress=False)
 

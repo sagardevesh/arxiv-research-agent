@@ -1,6 +1,6 @@
+from mcp_server.context import ctx
 from rag.ingest import Paper, fetch_paper_by_id
 from rag.retriever import hybrid_search
-from mcp_server.context import ctx
 
 
 def _paper_to_dict(paper: Paper) -> dict:

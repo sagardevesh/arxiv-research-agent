@@ -1,6 +1,9 @@
 # Environment
 .env
 
+# Claude Code local settings (machine-specific)
+.claude/
+
 # Python
 __pycache__/
 *.py[cod]

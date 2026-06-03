@@ -1,8 +1,6 @@
 from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 from rag.ingest import Paper, fetch_papers
 
 
@@ -18,6 +16,7 @@ def _make_arxiv_result(
     result.entry_id = entry_id
     result.title = title
     result.summary = summary
+
     def _author(name):
         m = MagicMock()
         m.name = name
@@ -88,7 +87,9 @@ class TestFetchPapers:
 
     def test_category_filter_excludes_non_matching(self):
         cs_lg = _make_arxiv_result(categories=("cs.LG",))
-        cs_cv = _make_arxiv_result(entry_id="http://arxiv.org/abs/2301.00002v1", categories=("cs.CV",))
+        cs_cv = _make_arxiv_result(
+            entry_id="http://arxiv.org/abs/2301.00002v1", categories=("cs.CV",)
+        )
         with patch("rag.ingest.arxiv.Search") as MockSearch:
             MockSearch.return_value.results.return_value = [cs_lg, cs_cv]
             papers = fetch_papers("test", categories=["cs.LG"])
@@ -97,7 +98,9 @@ class TestFetchPapers:
         assert papers[0].categories == ["cs.LG"]
 
     def test_no_category_filter_returns_all(self):
-        results = [_make_arxiv_result(entry_id=f"http://arxiv.org/abs/230{i}.00001v1") for i in range(3)]
+        results = [
+            _make_arxiv_result(entry_id=f"http://arxiv.org/abs/230{i}.00001v1") for i in range(3)
+        ]
         with patch("rag.ingest.arxiv.Search") as MockSearch:
             MockSearch.return_value.results.return_value = results
             papers = fetch_papers("test")

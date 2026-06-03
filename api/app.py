@@ -41,6 +41,7 @@ app = FastAPI(title="ArXiv Research Agent", version="0.1.0", lifespan=lifespan)
 
 # --- models ---
 
+
 class ChatRequest(BaseModel):
     message: str
     thread_id: str = "default"
@@ -53,11 +54,13 @@ class ChatResponse(BaseModel):
 
 # --- dependencies ---
 
+
 def get_graph(request: Request):
     return request.app.state.graph
 
 
 # --- routes ---
+
 
 @app.get("/health")
 def health():
