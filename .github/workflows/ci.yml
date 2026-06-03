@@ -1,0 +1,146 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  PYTHON_VERSION: "3.11"
+
+jobs:
+  # ── 1. Lint ──────────────────────────────────────────────────────────────
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - run: pip install ruff
+
+      - name: Check formatting
+        run: ruff format --check .
+
+      - name: Check linting
+        run: ruff check .
+
+  # ── 2. Unit tests (no external services) ─────────────────────────────────
+  test:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -e ".[dev,eval]"
+
+      - name: Fix RAGAS vertexai shim
+        run: |
+          python - <<'EOF'
+          from pathlib import Path
+          import langchain_community.chat_models as cm
+          shim = Path(cm.__file__).parent / "vertexai.py"
+          shim.write_text(
+              "from langchain_google_vertexai import ChatVertexAI\n"
+              "__all__ = ['ChatVertexAI']\n"
+          )
+          print(f"Shim written to {shim}")
+          EOF
+
+      - name: Run unit tests
+        run: pytest tests/ -v --ignore=tests/test_rag/test_ingest.py
+
+  # ── 3. RAGAS eval gate (needs live Qdrant + API key) ─────────────────────
+  eval:
+    name: RAGAS Eval Gate
+    runs-on: ubuntu-latest
+    needs: test
+    services:
+      qdrant:
+        image: qdrant/qdrant:v1.9.3
+        ports:
+          - 6333:6333
+    env:
+      QDRANT_URL: http://localhost:6333
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -e ".[dev,eval]"
+
+      - name: Fix RAGAS vertexai shim
+        run: |
+          python - <<'EOF'
+          from pathlib import Path
+          import langchain_community.chat_models as cm
+          shim = Path(cm.__file__).parent / "vertexai.py"
+          shim.write_text(
+              "from langchain_google_vertexai import ChatVertexAI\n"
+              "__all__ = ['ChatVertexAI']\n"
+          )
+          EOF
+
+      - name: Cache embedding models
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/torch/sentence_transformers
+            ~/.cache/fastembed
+          key: embedding-models-${{ env.PYTHON_VERSION }}-${{ runner.os }}
+
+      - name: Seed Qdrant with papers
+        run: |
+          python scripts/ingest_arxiv.py --query "transformer attention self-attention" --max 20
+          python scripts/ingest_arxiv.py --query "BERT language model pretraining" --max 10
+          python scripts/ingest_arxiv.py --query "retrieval augmented generation RAG" --max 10
+
+      - name: Run RAGAS eval gate
+        run: python -m eval.run_eval
+
+  # ── 4. Docker build (push to GHCR on main only) ──────────────────────────
+  docker-build:
+    name: Docker Build
+    runs-on: ubuntu-latest
+    needs: eval
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: infra/Dockerfile
+          push: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+          tags: ghcr.io/${{ github.repository }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

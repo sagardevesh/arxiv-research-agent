@@ -1,0 +1,22 @@
+# Environment
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+dist/
+build/
+
+# Testing / tooling
+.pytest_cache/
+.benchmarks/
+.ruff_cache/
+
+# IDE
+.vscode/
+.idea/
+
+# Docker volumes (local dev)
+qdrant_data/
