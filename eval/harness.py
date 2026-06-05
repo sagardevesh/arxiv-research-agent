@@ -69,15 +69,14 @@ def _default_answer_fn(question: str, contexts: list[str]) -> str:
 
 
 def _make_ragas_llm():
-    from langchain_anthropic import ChatAnthropic
-    from ragas.llms import LangchainLLMWrapper
+    import anthropic
+    import instructor
+    from ragas.llms import InstructorLLM
 
-    return LangchainLLMWrapper(
-        ChatAnthropic(
-            model="claude-sonnet-4-6",
-            api_key=os.environ["ANTHROPIC_API_KEY"],
-        )
+    client = instructor.from_anthropic(
+        anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
     )
+    return InstructorLLM(client=client, model="claude-sonnet-4-6", provider="anthropic")
 
 
 def run_eval(
