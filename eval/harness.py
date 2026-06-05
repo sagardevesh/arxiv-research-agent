@@ -73,9 +73,7 @@ def _make_ragas_llm():
     import instructor
     from ragas.llms import InstructorLLM
 
-    client = instructor.from_anthropic(
-        anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
-    )
+    client = instructor.from_anthropic(anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"]))
     return InstructorLLM(client=client, model="claude-sonnet-4-6", provider="anthropic")
 
 
