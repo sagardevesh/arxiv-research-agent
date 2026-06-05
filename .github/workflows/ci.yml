@@ -105,11 +105,8 @@ jobs:
             ~/.cache/fastembed
           key: embedding-models-${{ env.PYTHON_VERSION }}-${{ runner.os }}
 
-      - name: Seed Qdrant with papers
-        run: |
-          python scripts/ingest_arxiv.py --query "transformer attention self-attention" --max 20
-          python scripts/ingest_arxiv.py --query "BERT language model pretraining" --max 10
-          python scripts/ingest_arxiv.py --query "retrieval augmented generation RAG" --max 10
+      - name: Seed Qdrant from fixtures
+        run: python scripts/seed_from_fixtures.py
 
       - name: Run RAGAS eval gate
         run: python -m eval.run_eval
