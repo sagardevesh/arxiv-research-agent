@@ -75,8 +75,8 @@ class TestPaper:
 class TestFetchPapers:
     def test_returns_paper_objects(self):
         mock_result = _make_arxiv_result()
-        with patch("rag.ingest.arxiv.Search") as MockSearch:
-            MockSearch.return_value.results.return_value = [mock_result]
+        with patch("rag.ingest._client") as mock_client:
+            mock_client.results.return_value = [mock_result]
             papers = fetch_papers("test query", max_results=1)
 
         assert len(papers) == 1
@@ -90,8 +90,8 @@ class TestFetchPapers:
         cs_cv = _make_arxiv_result(
             entry_id="http://arxiv.org/abs/2301.00002v1", categories=("cs.CV",)
         )
-        with patch("rag.ingest.arxiv.Search") as MockSearch:
-            MockSearch.return_value.results.return_value = [cs_lg, cs_cv]
+        with patch("rag.ingest._client") as mock_client:
+            mock_client.results.return_value = [cs_lg, cs_cv]
             papers = fetch_papers("test", categories=["cs.LG"])
 
         assert len(papers) == 1
@@ -101,8 +101,8 @@ class TestFetchPapers:
         results = [
             _make_arxiv_result(entry_id=f"http://arxiv.org/abs/230{i}.00001v1") for i in range(3)
         ]
-        with patch("rag.ingest.arxiv.Search") as MockSearch:
-            MockSearch.return_value.results.return_value = results
+        with patch("rag.ingest._client") as mock_client:
+            mock_client.results.return_value = results
             papers = fetch_papers("test")
 
         assert len(papers) == 3

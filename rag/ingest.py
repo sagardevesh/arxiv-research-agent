@@ -43,11 +43,14 @@ def _result_to_paper(result) -> "Paper":
     )
 
 
+_client = arxiv.Client()
+
+
 def fetch_paper_by_id(paper_id: str) -> "Paper":
     """Fetch a single paper by arXiv ID (version suffix stripped automatically)."""
     clean_id = paper_id.split("v")[0]
     search = arxiv.Search(id_list=[clean_id])
-    for result in search.results():
+    for result in _client.results(search):
         return _result_to_paper(result)
     raise ValueError(f"Paper not found on arXiv: {paper_id!r}")
 
@@ -64,7 +67,7 @@ def fetch_papers(
         sort_by=arxiv.SortCriterion.Relevance,
     )
     papers = []
-    for result in search.results():
+    for result in _client.results(search):
         if categories and not any(c in result.categories for c in categories):
             continue
         papers.append(_result_to_paper(result))
