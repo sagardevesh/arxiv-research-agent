@@ -2,6 +2,10 @@
 
 Evaluates three metrics: Faithfulness, AnswerRelevancy, ContextPrecision.
 Pass injectable retriever_fn / answer_fn for testing without live services.
+
+NOTE: Uses the legacy ragas.metrics API (not ragas.metrics.collections).
+The new collections API is incompatible with ragas.evaluate(); the legacy
+API works end-to-end and is still supported in ragas 0.4.x.
 """
 
 from __future__ import annotations
@@ -16,11 +20,12 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# Suppress Google Cloud Python-version FutureWarnings pulled in by ragas.
+# Suppress FutureWarnings from Google Cloud packages pulled in by ragas.
 with warnings.catch_warnings():
     warnings.simplefilter("ignore")
-    from ragas import EvaluationDataset, SingleTurnSample, evaluate
-    from ragas.metrics.collections import AnswerRelevancy, ContextPrecision, Faithfulness
+    from datasets import Dataset
+    from ragas import evaluate
+    from ragas.metrics import answer_relevancy, context_precision, faithfulness
 
 QUESTIONS_PATH = Path(__file__).parent / "questions.jsonl"
 
@@ -39,11 +44,10 @@ def load_questions() -> list[dict]:
 def _default_retriever(question: str) -> list[str]:
     """Retrieve context strings for a question using the live RAG pipeline."""
     from mcp_server.context import ctx
+    from rag.retriever import hybrid_search
 
     dense = ctx.dense_embedder.embed([question])[0]
     sparse = ctx.sparse_embedder.embed([question])[0]
-    from rag.retriever import hybrid_search
-
     hits = hybrid_search(ctx.qdrant, dense, sparse, top_k=5)
     return [f"{h['title']}\n{h.get('abstract', '')}" for h in hits]
 
@@ -68,21 +72,28 @@ def _default_answer_fn(question: str, contexts: list[str]) -> str:
     return response.content[0].text
 
 
-def _make_ragas_llm():
-    import anthropic
-    import instructor
-    from ragas.llms import InstructorLLM
+def _configure_metrics(ragas_llm, ragas_embeddings) -> None:
+    """Attach LLM and embeddings to the module-level metric singletons."""
+    faithfulness.llm = ragas_llm
+    context_precision.llm = ragas_llm
+    answer_relevancy.llm = ragas_llm
+    answer_relevancy.embeddings = ragas_embeddings
 
-    client = instructor.from_anthropic(anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"]))
-    return InstructorLLM(client=client, model="claude-sonnet-4-6", provider="anthropic")
+
+def _make_ragas_llm():
+    from langchain_anthropic import ChatAnthropic
+    from ragas.llms import LangchainLLMWrapper
+
+    return LangchainLLMWrapper(
+        ChatAnthropic(model="claude-sonnet-4-6", api_key=os.environ["ANTHROPIC_API_KEY"])
+    )
 
 
 def _make_ragas_embeddings():
-    from ragas.embeddings import HuggingFaceEmbeddings
+    from langchain_community.embeddings import FastEmbedEmbeddings
+    from ragas.embeddings import LangchainEmbeddingsWrapper
 
-    return HuggingFaceEmbeddings(
-        model="sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
-    )
+    return LangchainEmbeddingsWrapper(FastEmbedEmbeddings(model_name="BAAI/bge-small-en-v1.5"))
 
 
 def run_eval(
@@ -96,7 +107,8 @@ def run_eval(
     Args:
         retriever_fn: (question) -> list[context_str]. Defaults to live RAG pipeline.
         answer_fn: (question, contexts) -> answer_str. Defaults to Claude via API.
-        ragas_llm: RAGAS LLM wrapper. Defaults to Claude via langchain wrapper.
+        ragas_llm: RAGAS LLM wrapper. Defaults to LangchainLLMWrapper(ChatAnthropic).
+        ragas_embeddings: RAGAS embeddings. Defaults to FastEmbed bge-small-en-v1.5.
 
     Returns:
         Dict mapping metric name to score (0.0–1.0).
@@ -106,28 +118,29 @@ def run_eval(
     ragas_llm = ragas_llm or _make_ragas_llm()
     ragas_embeddings = ragas_embeddings or _make_ragas_embeddings()
 
+    _configure_metrics(ragas_llm, ragas_embeddings)
+
     questions = load_questions()
-    samples = []
+    rows: list[dict] = []
     for q in questions:
         contexts = retriever_fn(q["question"])
         response = answer_fn(q["question"], contexts)
-        samples.append(
-            SingleTurnSample(
-                user_input=q["question"],
-                retrieved_contexts=contexts,
-                response=response,
-                reference=q["ground_truth"],
-            )
+        rows.append(
+            {
+                "question": q["question"],
+                "answer": response,
+                "contexts": contexts,
+                "ground_truth": q["ground_truth"],
+            }
         )
 
-    dataset = EvaluationDataset(samples=samples)
-    metrics = [
-        Faithfulness(llm=ragas_llm),
-        AnswerRelevancy(llm=ragas_llm, embeddings=ragas_embeddings),
-        ContextPrecision(llm=ragas_llm),
-    ]
-
-    result = evaluate(dataset, metrics=metrics, show_progress=False)
+    dataset = Dataset.from_list(rows)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        result = evaluate(
+            dataset,
+            metrics=[faithfulness, answer_relevancy, context_precision],
+        )
 
     return {
         "faithfulness": float(result["faithfulness"]),
@@ -142,7 +155,7 @@ def check_thresholds(scores: dict[str, float]) -> bool:
     for metric, threshold in THRESHOLDS.items():
         score = scores.get(metric, 0.0)
         status = "PASS" if score >= threshold else "FAIL"
-        print(f"  {metric}: {score:.3f}  (threshold ≥ {threshold})  [{status}]")
+        print(f"  {metric}: {score:.3f}  (threshold >= {threshold})  [{status}]")
         if score < threshold:
             passed = False
     return passed

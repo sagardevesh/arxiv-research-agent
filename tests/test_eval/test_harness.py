@@ -31,7 +31,7 @@ def test_check_thresholds_one_fail(capsys):
 
 
 def test_run_eval_uses_injected_fns():
-    """run_eval should call the injected retriever and answer functions."""
+    """run_eval calls the injected retriever and answer functions for every question."""
     retriever_calls = []
     answer_calls = []
 
@@ -43,24 +43,17 @@ def test_run_eval_uses_injected_fns():
         answer_calls.append((question, contexts))
         return "Self-attention allows transformers to relate positions in the sequence."
 
-    mock_ragas_llm = MagicMock()
-    mock_metric = MagicMock()
-    mock_metric.name = "faithfulness"
     mock_result = {"faithfulness": 0.85, "answer_relevancy": 0.80, "context_precision": 0.75}
 
     with (
         patch("eval.harness.evaluate", return_value=mock_result),
-        patch("eval.harness.Faithfulness", return_value=mock_metric),
-        patch("eval.harness.AnswerRelevancy", return_value=mock_metric),
-        patch("eval.harness.ContextPrecision", return_value=mock_metric),
-        patch("eval.harness.EvaluationDataset") as mock_dataset,
-        patch("eval.harness.SingleTurnSample"),
+        patch("eval.harness.Dataset") as mock_dataset_cls,
     ):
-        mock_dataset.return_value = MagicMock()
+        mock_dataset_cls.from_list.return_value = MagicMock()
         scores = run_eval(
             retriever_fn=mock_retriever,
             answer_fn=mock_answer,
-            ragas_llm=mock_ragas_llm,
+            ragas_llm=MagicMock(),
             ragas_embeddings=MagicMock(),
         )
 
