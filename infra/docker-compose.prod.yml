@@ -1,0 +1,26 @@
+services:
+  qdrant:
+    image: qdrant/qdrant:v1.9.3
+    volumes:
+      - qdrant_data:/qdrant/storage
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:6333/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  app:
+    image: ghcr.io/sagardevesh/arxiv-research-agent:latest
+    ports:
+      - "8000:8000"
+    env_file: .env
+    environment:
+      QDRANT_URL: http://qdrant:6333
+    depends_on:
+      qdrant:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  qdrant_data:
