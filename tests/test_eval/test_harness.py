@@ -61,6 +61,7 @@ def test_run_eval_uses_injected_fns():
             retriever_fn=mock_retriever,
             answer_fn=mock_answer,
             ragas_llm=mock_ragas_llm,
+            ragas_embeddings=MagicMock(),
         )
 
     questions = load_questions()

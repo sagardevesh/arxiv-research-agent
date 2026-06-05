@@ -77,10 +77,19 @@ def _make_ragas_llm():
     return InstructorLLM(client=client, model="claude-sonnet-4-6", provider="anthropic")
 
 
+def _make_ragas_embeddings():
+    from ragas.embeddings import HuggingFaceEmbeddings
+
+    return HuggingFaceEmbeddings(
+        model="sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
+    )
+
+
 def run_eval(
     retriever_fn: Callable[[str], list[str]] | None = None,
     answer_fn: Callable[[str, list[str]], str] | None = None,
     ragas_llm=None,
+    ragas_embeddings=None,
 ) -> dict[str, float]:
     """Run RAGAS evaluation and return a scores dict.
 
@@ -95,6 +104,7 @@ def run_eval(
     retriever_fn = retriever_fn or _default_retriever
     answer_fn = answer_fn or _default_answer_fn
     ragas_llm = ragas_llm or _make_ragas_llm()
+    ragas_embeddings = ragas_embeddings or _make_ragas_embeddings()
 
     questions = load_questions()
     samples = []
@@ -113,7 +123,7 @@ def run_eval(
     dataset = EvaluationDataset(samples=samples)
     metrics = [
         Faithfulness(llm=ragas_llm),
-        AnswerRelevancy(llm=ragas_llm),
+        AnswerRelevancy(llm=ragas_llm, embeddings=ragas_embeddings),
         ContextPrecision(llm=ragas_llm),
     ]
 
