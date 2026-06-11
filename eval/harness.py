@@ -3,9 +3,12 @@
 Evaluates three metrics: Faithfulness, AnswerRelevancy, ContextPrecision.
 Pass injectable retriever_fn / answer_fn for testing without live services.
 
-NOTE: Uses the legacy ragas.metrics API (not ragas.metrics.collections).
-The new collections API is incompatible with ragas.evaluate(); the legacy
-API works end-to-end and is still supported in ragas 0.4.x.
+Uses the legacy ragas.metrics API (not ragas.metrics.collections) — the
+collections API is incompatible with ragas.evaluate().
+
+LLM: Claude Haiku (fast/cheap for CI). Embeddings: HuggingFaceEmbeddings
+(FastEmbedEmbeddings exposes a TextEmbedding object as .model, which breaks
+RAGAS's EmbeddingUsageEvent string validation).
 """
 
 from __future__ import annotations
@@ -85,15 +88,15 @@ def _make_ragas_llm():
     from ragas.llms import LangchainLLMWrapper
 
     return LangchainLLMWrapper(
-        ChatAnthropic(model="claude-sonnet-4-6", api_key=os.environ["ANTHROPIC_API_KEY"])
+        ChatAnthropic(model="claude-haiku-4-5-20251001", api_key=os.environ["ANTHROPIC_API_KEY"])
     )
 
 
 def _make_ragas_embeddings():
-    from langchain_community.embeddings import FastEmbedEmbeddings
+    from langchain_community.embeddings import HuggingFaceEmbeddings
     from ragas.embeddings import LangchainEmbeddingsWrapper
 
-    return LangchainEmbeddingsWrapper(FastEmbedEmbeddings(model_name="BAAI/bge-small-en-v1.5"))
+    return LangchainEmbeddingsWrapper(HuggingFaceEmbeddings(model_name="BAAI/bge-small-en-v1.5"))
 
 
 def run_eval(
@@ -108,7 +111,7 @@ def run_eval(
         retriever_fn: (question) -> list[context_str]. Defaults to live RAG pipeline.
         answer_fn: (question, contexts) -> answer_str. Defaults to Claude via API.
         ragas_llm: RAGAS LLM wrapper. Defaults to LangchainLLMWrapper(ChatAnthropic).
-        ragas_embeddings: RAGAS embeddings. Defaults to FastEmbed bge-small-en-v1.5.
+        ragas_embeddings: RAGAS embeddings. Defaults to HuggingFaceEmbeddings bge-small-en-v1.5.
 
     Returns:
         Dict mapping metric name to score (0.0–1.0).
@@ -137,15 +140,29 @@ def run_eval(
     dataset = Dataset.from_list(rows)
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
+        from ragas.run_config import RunConfig
+
         result = evaluate(
             dataset,
             metrics=[faithfulness, answer_relevancy, context_precision],
+            raise_exceptions=False,
+            run_config=RunConfig(timeout=600, max_workers=1),
         )
 
+    # result[metric] is a list of per-sample scores (NaN for failed rows).
+    # Compute nanmean so that individual timeouts don't invalidate the whole run.
+    import numpy as np
+
+    def _mean(key: str) -> float:
+        val = result[key]
+        if isinstance(val, (list, tuple)):
+            return float(np.nanmean(val))
+        return float(val)
+
     return {
-        "faithfulness": float(result["faithfulness"]),
-        "answer_relevancy": float(result["answer_relevancy"]),
-        "context_precision": float(result["context_precision"]),
+        "faithfulness": _mean("faithfulness"),
+        "answer_relevancy": _mean("answer_relevancy"),
+        "context_precision": _mean("context_precision"),
     }
 
 
