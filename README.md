@@ -2,7 +2,7 @@
 
 A conversational agentic system for querying ML/NLP research literature on arXiv. Users ask natural-language questions; the agent retrieves relevant papers, synthesises grounded answers with citations, and supports multi-turn follow-up via a persistent chat thread.
 
-Built as a portfolio project for ML engineer roles — every component is independently testable and explainable in an interview.
+Every component is independently testable and explainable.
 
 ---
 
