@@ -3,8 +3,16 @@ name: CI
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - "README.md"
+      - "**.md"
+      - ".gitignore"
   pull_request:
     branches: [main]
+    paths-ignore:
+      - "README.md"
+      - "**.md"
+      - ".gitignore"
 
 env:
   PYTHON_VERSION: "3.11"
