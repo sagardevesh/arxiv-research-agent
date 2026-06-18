@@ -1,6 +1,9 @@
 # Environment
 .env
 
+# Personal runbook (private operational notes)
+RUNBOOK.md
+
 # Claude Code local settings (machine-specific)
 .claude/
 
